@@ -8,6 +8,11 @@ import {
 } from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import {
+  CfnPullThroughCacheRule,
+  CfnRegistryPolicy,
+  Repository,
+} from "aws-cdk-lib/aws-ecr";
+import {
   Cluster,
   Compatibility,
   ContainerImage,
@@ -21,23 +26,13 @@ import {
   ApplicationProtocol,
   Protocol,
 } from "aws-cdk-lib/aws-elasticloadbalancingv2";
-import {
-  ManagedPolicy,
-  PolicyStatement,
-  Role,
-  ServicePrincipal,
-} from "aws-cdk-lib/aws-iam";
+import { PolicyStatement, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { RetentionDays } from "aws-cdk-lib/aws-logs";
-import { BlockPublicAccess, Bucket } from "aws-cdk-lib/aws-s3";
+import { Bucket } from "aws-cdk-lib/aws-s3";
 import {
   BucketDeployment,
   Source as S3Source,
 } from "aws-cdk-lib/aws-s3-deployment";
-import {
-  CfnPullThroughCacheRule,
-  CfnRegistryPolicy,
-  Repository,
-} from "aws-cdk-lib/aws-ecr";
 import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
 import { join } from "path";
@@ -240,38 +235,38 @@ export class MyStack extends Stack {
     );
 
     // Debug Instance
-    const debugInstanceSg = new ec2.SecurityGroup(this, "DebugInstanceSg", {
-      vpc,
-      description: "Security group for debug EC2 instance",
-      allowAllOutbound: true,
-    });
+    // const debugInstanceSg = new ec2.SecurityGroup(this, "DebugInstanceSg", {
+    //   vpc,
+    //   description: "Security group for debug EC2 instance",
+    //   allowAllOutbound: true,
+    // });
 
-    const debugInstanceRole = new Role(this, "DebugInstanceRole", {
-      assumedBy: new ServicePrincipal("ec2.amazonaws.com"),
-      managedPolicies: [
-        ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"),
-      ],
-    });
+    // const debugInstanceRole = new Role(this, "DebugInstanceRole", {
+    //   assumedBy: new ServicePrincipal("ec2.amazonaws.com"),
+    //   managedPolicies: [
+    //     ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"),
+    //   ],
+    // });
 
-    const debugInstance = new ec2.Instance(this, "DebugInstance", {
-      vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
-      instanceType: ec2.InstanceType.of(
-        ec2.InstanceClass.T3,
-        ec2.InstanceSize.MICRO,
-      ),
-      machineImage: new ec2.AmazonLinuxImage({
-        generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2,
-      }),
-      securityGroup: debugInstanceSg,
-      role: debugInstanceRole,
-    });
+    // const debugInstance = new ec2.Instance(this, "DebugInstance", {
+    //   vpc,
+    //   vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
+    //   instanceType: ec2.InstanceType.of(
+    //     ec2.InstanceClass.T3,
+    //     ec2.InstanceSize.MICRO,
+    //   ),
+    //   machineImage: new ec2.AmazonLinuxImage({
+    //     generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2,
+    //   }),
+    //   securityGroup: debugInstanceSg,
+    //   role: debugInstanceRole,
+    // });
 
-    debugInstanceSg.connections.allowTo(
-      alb,
-      ec2.Port.tcp(4318),
-      "Allow access to ALB OTLP endpoint",
-    );
+    // debugInstanceSg.connections.allowTo(
+    //   alb,
+    //   ec2.Port.tcp(4318),
+    //   "Allow access to ALB OTLP endpoint",
+    // );
 
     // Ensure the registry policy is created before the service tries to pull images.
     service.node.addDependency(dhCacheRegistryPolicy);
@@ -281,9 +276,9 @@ export class MyStack extends Stack {
       value: `http://${alb.loadBalancerDnsName}:4318`,
     });
 
-    new CfnOutput(this, "DebugInstanceId", {
-      value: debugInstance.instanceId,
-      description: "ID of the debug EC2 instance",
-    });
+    // new CfnOutput(this, "DebugInstanceId", {
+    //   value: debugInstance.instanceId,
+    //   description: "ID of the debug EC2 instance",
+    // });
   }
 }
