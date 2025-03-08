@@ -133,7 +133,7 @@ export class MyStack extends Stack {
     });
 
     // Task Role and Definition
-    const taskRole = new Role(this, "OtelCollectorTaskRole", {
+    const ecsTaskRole = new Role(this, "OtelCollectorTaskRole", {
       assumedBy: new ServicePrincipal("ecs-tasks.amazonaws.com"),
     });
 
@@ -141,26 +141,30 @@ export class MyStack extends Stack {
       new PolicyStatement({
         actions: ["s3:GetObject"],
         resources: [otelConfigBucket.arnForObjects("*")],
-        principals: [taskRole],
+        principals: [ecsTaskRole],
       }),
     );
 
     // Create a task execution role with permissions to pull from ECR
-    const taskExecutionRole = new Role(this, "OtelCollectorTaskExecutionRole", {
-      assumedBy: new ServicePrincipal("ecs-tasks.amazonaws.com"),
-      managedPolicies: [
-        ManagedPolicy.fromAwsManagedPolicyName(
-          "service-role/AmazonECSTaskExecutionRolePolicy",
-        ),
-      ],
-    });
+    const ecsTaskExecutionRole = new Role(
+      this,
+      "OtelCollectorTaskExecutionRole",
+      {
+        assumedBy: new ServicePrincipal("ecs-tasks.amazonaws.com"),
+        managedPolicies: [
+          ManagedPolicy.fromAwsManagedPolicyName(
+            "service-role/AmazonECSTaskExecutionRolePolicy",
+          ),
+        ],
+      },
+    );
 
     const taskDefinition = new TaskDefinition(this, "OtelCollectorTaskDef", {
       compatibility: Compatibility.FARGATE,
       cpu: "512",
       memoryMiB: "1024",
-      taskRole: taskRole,
-      executionRole: taskExecutionRole,
+      taskRole: ecsTaskRole,
+      executionRole: ecsTaskExecutionRole,
     });
 
     taskDefinition.addContainer("otel-collector", {
