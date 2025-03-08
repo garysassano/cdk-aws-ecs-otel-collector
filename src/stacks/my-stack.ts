@@ -26,7 +26,13 @@ import {
   ApplicationProtocol,
   Protocol,
 } from "aws-cdk-lib/aws-elasticloadbalancingv2";
-import { PolicyStatement, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
+import {
+  PolicyStatement,
+  Role,
+  ServicePrincipal,
+  ManagedPolicy,
+  AnyPrincipal,
+} from "aws-cdk-lib/aws-iam";
 import { RetentionDays } from "aws-cdk-lib/aws-logs";
 import { Bucket } from "aws-cdk-lib/aws-s3";
 import {
@@ -37,6 +43,7 @@ import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
 import { join } from "path";
 import { validateEnv } from "../utils/validate-env";
+import { BlockPublicAccess } from "aws-cdk-lib/aws-s3";
 
 /**
  * Prefix required for ECR pull-through cache secrets in AWS Secrets Manager.
@@ -138,11 +145,22 @@ export class MyStack extends Stack {
       }),
     );
 
+    // Create a task execution role with permissions to pull from ECR
+    const taskExecutionRole = new Role(this, "OtelCollectorTaskExecutionRole", {
+      assumedBy: new ServicePrincipal("ecs-tasks.amazonaws.com"),
+      managedPolicies: [
+        ManagedPolicy.fromAwsManagedPolicyName(
+          "service-role/AmazonECSTaskExecutionRolePolicy",
+        ),
+      ],
+    });
+
     const taskDefinition = new TaskDefinition(this, "OtelCollectorTaskDef", {
       compatibility: Compatibility.FARGATE,
       cpu: "512",
       memoryMiB: "1024",
-      taskRole,
+      taskRole: taskRole,
+      executionRole: taskExecutionRole,
     });
 
     taskDefinition.addContainer("otel-collector", {
