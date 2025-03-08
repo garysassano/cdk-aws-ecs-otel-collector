@@ -12,7 +12,7 @@ const project = new awscdk.AwsCdkTypeScriptApp({
   prettier: true,
   projenrcTs: true,
 
-  deps: [],
+  deps: ["@aws-cdk/aws-apprunner-alpha"],
 });
 
 project.synth();
