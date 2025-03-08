@@ -252,7 +252,13 @@ export class MyStack extends Stack {
       "Allow ALB to access OTel Collector healthcheck endpoint",
     );
 
-    // Debug Instance
+    // Ensure the registry policy is created before the service tries to pull images.
+    service.node.addDependency(dhCacheRegistryPolicy);
+
+    //==============================================================================
+    // EC2 DEBUG INSTANCE
+    //==============================================================================
+
     // const debugInstanceSg = new ec2.SecurityGroup(this, "DebugInstanceSg", {
     //   vpc,
     //   description: "Security group for debug EC2 instance",
@@ -285,18 +291,5 @@ export class MyStack extends Stack {
     //   ec2.Port.tcp(4318),
     //   "Allow access to ALB OTLP endpoint",
     // );
-
-    // Ensure the registry policy is created before the service tries to pull images.
-    service.node.addDependency(dhCacheRegistryPolicy);
-
-    // Outputs
-    new CfnOutput(this, "OtelCollectorServiceUrl", {
-      value: `http://${alb.loadBalancerDnsName}:4318`,
-    });
-
-    // new CfnOutput(this, "DebugInstanceId", {
-    //   value: debugInstance.instanceId,
-    //   description: "ID of the debug EC2 instance",
-    // });
   }
 }
