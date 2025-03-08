@@ -23,6 +23,10 @@ export class MyStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps = {}) {
     super(scope, id, props);
 
+    //==============================================================================
+    // OTELCONTRIB ECR REPO (DOCKERHUB PULL-THROUGH CACHE)
+    //==============================================================================
+
     const dhCacheRuleSecret = new Secret(this, "DhCacheRuleSecret", {
       secretName: `${ECR_PULL_THROUGH_CACHE_PREFIX}dockerhub`,
       secretStringValue: SecretValue.unsafePlainText(
@@ -69,6 +73,10 @@ export class MyStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
       emptyOnDelete: true,
     });
+
+    //==============================================================================
+    // APP RUNNER SERVICE
+    //==============================================================================
 
     const otelcontribService = new Service(this, "OtelcontribService", {
       accessRole: apprunnerAccessRole,
