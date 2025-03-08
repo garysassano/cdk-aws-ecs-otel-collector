@@ -220,6 +220,9 @@ export class MyStack extends Stack {
       healthCheckGracePeriod: Duration.seconds(60),
     });
 
+    // Ensure the registry policy is created before the service tries to pull images.
+    service.node.addDependency(dhCacheRegistryPolicy);
+
     // Create target using service's loadBalancerTarget
     const otlpTarget = service.loadBalancerTarget({
       containerName: "otel-collector",
@@ -251,9 +254,6 @@ export class MyStack extends Stack {
       ec2.Port.tcp(13133),
       "Allow ALB to access OTel Collector healthcheck endpoint",
     );
-
-    // Ensure the registry policy is created before the service tries to pull images.
-    service.node.addDependency(dhCacheRegistryPolicy);
 
     //==============================================================================
     // EC2 DEBUG INSTANCE
