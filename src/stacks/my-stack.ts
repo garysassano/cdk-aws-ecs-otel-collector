@@ -64,16 +64,16 @@ export class MyStack extends Stack {
       },
     );
 
-    const ecrNginxRepo = new Repository(this, "EcrNginxRepo", {
-      repositoryName: `${dhCacheRule.ecrRepositoryPrefix}/library/nginx`,
+    const ecrOtelcontribRepo = new Repository(this, "EcrOtelcontribRepo", {
+      repositoryName: `${dhCacheRule.ecrRepositoryPrefix}/otel/opentelemetry-collector-contrib`,
       removalPolicy: RemovalPolicy.DESTROY,
       emptyOnDelete: true,
     });
 
-    const nginxService = new Service(this, "NginxService", {
+    const otelcontribService = new Service(this, "OtelcontribService", {
       accessRole: apprunnerAccessRole,
       source: Source.fromEcr({
-        repository: ecrNginxRepo,
+        repository: ecrOtelcontribRepo,
         imageConfiguration: {
           port: 80,
         },
@@ -83,6 +83,6 @@ export class MyStack extends Stack {
     // Ensure the registry policy is created before the service tries to pull images.
     // Without this dependency, the App Runner service might fail to start if it attempts
     // to pull images before the ECR registry policy is in place.
-    nginxService.node.addDependency(dhCacheRegistryPolicy);
+    otelcontribService.node.addDependency(dhCacheRegistryPolicy);
   }
 }
