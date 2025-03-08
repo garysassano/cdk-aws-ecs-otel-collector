@@ -9,6 +9,6 @@ const devEnv = {
 
 const app = new App();
 
-new MyStack(app, "cdk-aws-apprunner-dockerhub-cache-dev", { env: devEnv });
+new MyStack(app, "cdk-aws-ecs-otel-collector-dev", { env: devEnv });
 
 app.synth();
