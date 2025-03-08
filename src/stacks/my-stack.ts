@@ -186,13 +186,13 @@ export class MyStack extends Stack {
           name: "healthcheck",
         },
       ],
-      healthCheck: {
-        command: ["CMD", "/healthcheck"],
-        timeout: Duration.seconds(10),
-        startPeriod: Duration.seconds(10),
-        retries: 3,
-        interval: Duration.seconds(30),
-      },
+      // healthCheck: {
+      //   command: ["CMD", "/healthcheck"],
+      //   timeout: Duration.seconds(10),
+      //   startPeriod: Duration.seconds(10),
+      //   retries: 3,
+      //   interval: Duration.seconds(30),
+      // },
       logging: LogDriver.awsLogs({
         streamPrefix: "/ecs/otel-collector",
         logRetention: RetentionDays.ONE_WEEK,
