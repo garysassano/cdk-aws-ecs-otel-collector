@@ -1,0 +1,1 @@
+# cdk-aws-ecs-otel-collector
