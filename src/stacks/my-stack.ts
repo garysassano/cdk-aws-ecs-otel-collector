@@ -133,7 +133,7 @@ export class MyStack extends Stack {
     });
 
     // Task Role and Definition
-    const ecsTaskRole = new Role(this, "OtelCollectorTaskRole", {
+    const ecsTaskRole = new Role(this, "EcsTaskRole", {
       assumedBy: new ServicePrincipal("ecs-tasks.amazonaws.com"),
     });
 
@@ -146,20 +146,16 @@ export class MyStack extends Stack {
     );
 
     // Create a task execution role with permissions to pull from ECR
-    const ecsTaskExecutionRole = new Role(
-      this,
-      "OtelCollectorTaskExecutionRole",
-      {
-        assumedBy: new ServicePrincipal("ecs-tasks.amazonaws.com"),
-        managedPolicies: [
-          ManagedPolicy.fromAwsManagedPolicyName(
-            "service-role/AmazonECSTaskExecutionRolePolicy",
-          ),
-        ],
-      },
-    );
+    const ecsTaskExecutionRole = new Role(this, "EcsTaskExecutionRole", {
+      assumedBy: new ServicePrincipal("ecs-tasks.amazonaws.com"),
+      managedPolicies: [
+        ManagedPolicy.fromAwsManagedPolicyName(
+          "service-role/AmazonECSTaskExecutionRolePolicy",
+        ),
+      ],
+    });
 
-    const taskDefinition = new TaskDefinition(this, "OtelCollectorTaskDef", {
+    const ecsTaskDefinition = new TaskDefinition(this, "EcsTaskDefinition", {
       compatibility: Compatibility.FARGATE,
       cpu: "512",
       memoryMiB: "1024",
@@ -167,7 +163,7 @@ export class MyStack extends Stack {
       executionRole: ecsTaskExecutionRole,
     });
 
-    taskDefinition.addContainer("otel-collector", {
+    ecsTaskDefinition.addContainer("otel-collector", {
       image: ContainerImage.fromEcrRepository(ecrOtelcontribRepo),
       command: [
         "--config",
@@ -217,7 +213,7 @@ export class MyStack extends Stack {
     // Fargate Service
     const service = new FargateService(this, "OtelCollectorService", {
       cluster,
-      taskDefinition,
+      taskDefinition: ecsTaskDefinition,
       desiredCount: 2,
       assignPublicIp: true,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
