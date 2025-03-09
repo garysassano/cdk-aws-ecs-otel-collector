@@ -4,6 +4,10 @@ receivers:
       http:
         endpoint: 0.0.0.0:4318
 
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
 exporters:
   otlp:
     endpoint: api.honeycomb.io:443
@@ -11,6 +15,7 @@ exporters:
       x-honeycomb-team: ${env:HONEYCOMB_API_KEY}
 
 service:
+  extensions: [health_check]
   pipelines:
     traces:
       receivers: [otlp]

@@ -1,5 +1,4 @@
 import {
-  CfnOutput,
   Duration,
   RemovalPolicy,
   SecretValue,
@@ -27,11 +26,10 @@ import {
   Protocol,
 } from "aws-cdk-lib/aws-elasticloadbalancingv2";
 import {
+  PolicyDocument,
   PolicyStatement,
   Role,
   ServicePrincipal,
-  ManagedPolicy,
-  AnyPrincipal,
 } from "aws-cdk-lib/aws-iam";
 import { RetentionDays } from "aws-cdk-lib/aws-logs";
 import { Bucket } from "aws-cdk-lib/aws-s3";
@@ -43,7 +41,6 @@ import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
 import { join } from "path";
 import { validateEnv } from "../utils/validate-env";
-import { BlockPublicAccess } from "aws-cdk-lib/aws-s3";
 
 /**
  * Prefix required for ECR pull-through cache secrets in AWS Secrets Manager.
@@ -77,7 +74,8 @@ export class MyStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    const ecsAccessRole = new Role(this, "EcsAccessRole", {
+    // Role to pull ADOT Collector image from ECR
+    const ecsTaskExecutionRole = new Role(this, "EcsTaskExecutionRole", {
       assumedBy: new ServicePrincipal("ecs-tasks.amazonaws.com"),
     });
 
@@ -98,7 +96,7 @@ export class MyStack extends Stack {
             {
               Sid: "AllowDockerhubCache",
               Effect: "Allow",
-              Principal: { AWS: ecsAccessRole.roleArn },
+              Principal: { AWS: ecsTaskExecutionRole.roleArn },
               Action: ["ecr:CreateRepository", "ecr:BatchImportUpstreamImage"],
               Resource: `arn:aws:ecr:${this.region}:${this.account}:repository/${dhCacheRule.ecrRepositoryPrefix}/*`,
             },
@@ -117,57 +115,47 @@ export class MyStack extends Stack {
     // ECS CLUSTER WITH ALB
     //==============================================================================
 
-    // VPC and Network
     const vpc = new ec2.Vpc(this, "MyVpc", { maxAzs: 2 });
     const cluster = new Cluster(this, "OtelCollectorCluster", { vpc });
 
-    // S3 Bucket for OpenTelemetry Config
-    const otelConfigBucket = new Bucket(this, "OtelConfigBucket", {
+    const confmapBucket = new Bucket(this, "ConfmapBucket", {
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
     });
 
-    new BucketDeployment(this, "DeployOtelConfig", {
+    new BucketDeployment(this, "DeployConfmap", {
       sources: [S3Source.asset(join(__dirname, "..", "otel"))],
-      destinationBucket: otelConfigBucket,
+      destinationBucket: confmapBucket,
     });
 
-    // Task Role and Definition
+    // Role to get confmap file from S3 bucket
     const ecsTaskRole = new Role(this, "EcsTaskRole", {
       assumedBy: new ServicePrincipal("ecs-tasks.amazonaws.com"),
-    });
-
-    otelConfigBucket.addToResourcePolicy(
-      new PolicyStatement({
-        actions: ["s3:GetObject"],
-        resources: [otelConfigBucket.arnForObjects("*")],
-        principals: [ecsTaskRole],
-      }),
-    );
-
-    // Create a task execution role with permissions to pull from ECR
-    const ecsTaskExecutionRole = new Role(this, "EcsTaskExecutionRole", {
-      assumedBy: new ServicePrincipal("ecs-tasks.amazonaws.com"),
-      managedPolicies: [
-        ManagedPolicy.fromAwsManagedPolicyName(
-          "service-role/AmazonECSTaskExecutionRolePolicy",
-        ),
-      ],
+      inlinePolicies: {
+        S3Access: new PolicyDocument({
+          statements: [
+            new PolicyStatement({
+              actions: ["s3:GetObject"],
+              resources: [confmapBucket.arnForObjects("*")],
+            }),
+          ],
+        }),
+      },
     });
 
     const ecsTaskDefinition = new TaskDefinition(this, "EcsTaskDefinition", {
       compatibility: Compatibility.FARGATE,
       cpu: "512",
       memoryMiB: "1024",
-      taskRole: ecsTaskRole,
       executionRole: ecsTaskExecutionRole,
+      taskRole: ecsTaskRole,
     });
 
     ecsTaskDefinition.addContainer("otel-collector", {
       image: ContainerImage.fromEcrRepository(ecrOtelcontribRepo),
       command: [
         "--config",
-        `s3://${otelConfigBucket.bucketName}.s3.${this.region}.amazonaws.com/collector-confmap.yml`,
+        `s3://${confmapBucket.bucketName}.s3.${this.region}.amazonaws.com/collector-confmap.yml`,
       ],
       environment: {
         HONEYCOMB_API_KEY: env.HONEYCOMB_API_KEY,
@@ -186,13 +174,13 @@ export class MyStack extends Stack {
           name: "healthcheck",
         },
       ],
-      // healthCheck: {
-      //   command: ["CMD", "/healthcheck"],
-      //   timeout: Duration.seconds(10),
-      //   startPeriod: Duration.seconds(10),
-      //   retries: 3,
-      //   interval: Duration.seconds(30),
-      // },
+      healthCheck: {
+        command: ["CMD", "/healthcheck"],
+        timeout: Duration.seconds(10),
+        startPeriod: Duration.seconds(10),
+        retries: 3,
+        interval: Duration.seconds(30),
+      },
       logging: LogDriver.awsLogs({
         streamPrefix: "/ecs/otel-collector",
         logRetention: RetentionDays.ONE_WEEK,
