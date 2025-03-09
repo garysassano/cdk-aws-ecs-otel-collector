@@ -18,6 +18,7 @@ import {
   Protocol as EcsProtocol,
   FargateService,
   LogDriver,
+  Secret as EcsSecret,
   TaskDefinition,
 } from "aws-cdk-lib/aws-ecs";
 import {
@@ -26,6 +27,7 @@ import {
   Protocol,
 } from "aws-cdk-lib/aws-elasticloadbalancingv2";
 import {
+  ManagedPolicy,
   PolicyDocument,
   PolicyStatement,
   Role,
@@ -60,9 +62,10 @@ export class MyStack extends Stack {
     super(scope, id, props);
 
     //==============================================================================
-    // OTELCONTRIB ECR REPO (DOCKERHUB PULL-THROUGH CACHE)
+    // SECRETS MANAGER
     //==============================================================================
 
+    // Create a secret for Docker Hub credentials
     const dhCacheRuleSecret = new Secret(this, "DhCacheRuleSecret", {
       secretName: `${ECR_PULL_THROUGH_CACHE_PREFIX}dockerhub`,
       secretStringValue: SecretValue.unsafePlainText(
@@ -74,10 +77,20 @@ export class MyStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
+    // Create a secret for Honeycomb API key
+    const honeycombApiKeySecret = new Secret(this, "HoneycombApiKeySecret", {
+      secretName: "honeycomb-api-key",
+      secretStringValue: SecretValue.unsafePlainText(env.HONEYCOMB_API_KEY),
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
     // Role to pull ADOT Collector image from ECR
     const ecsTaskExecutionRole = new Role(this, "EcsTaskExecutionRole", {
       assumedBy: new ServicePrincipal("ecs-tasks.amazonaws.com"),
     });
+
+    // Grant the execution role permission to read the secrets
+    honeycombApiKeySecret.grantRead(ecsTaskExecutionRole);
 
     const dhCacheRule = new CfnPullThroughCacheRule(this, "DhCacheRule", {
       ecrRepositoryPrefix: "dockerhub",
@@ -157,8 +170,8 @@ export class MyStack extends Stack {
         "--config",
         `s3://${confmapBucket.bucketName}.s3.${this.region}.amazonaws.com/collector-confmap.yml`,
       ],
-      environment: {
-        HONEYCOMB_API_KEY: env.HONEYCOMB_API_KEY,
+      secrets: {
+        HONEYCOMB_API_KEY: EcsSecret.fromSecretsManager(honeycombApiKeySecret),
       },
       portMappings: [
         {
